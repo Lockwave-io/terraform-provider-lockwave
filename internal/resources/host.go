@@ -238,12 +238,16 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	// Carry forward the credential from state; PATCH does not return it.
+	// Carry forward the one-time credential from state; PATCH does not return it.
+	// Set it before flatten so flattenHostToState does not overwrite it with an
+	// empty value (the API returns "" for credential on updates).
 	plan.Credential = state.Credential
 	resp.Diagnostics.Append(flattenHostToState(ctx, host, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Re-assert after flatten in case the API ever starts returning a credential
+	// on PATCH (which it currently does not).
 	plan.Credential = state.Credential
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -298,6 +302,9 @@ func flattenHostToState(ctx context.Context, h *client.Host, m *HostResourceMode
 		m.LastSeenAt = types.StringNull()
 	}
 
+	// Credential is only returned by CreateHost; subsequent GETs/PATCHes return "".
+	// When the API provides one we store it; otherwise we leave the model field
+	// untouched so callers can preserve the value they already have in state.
 	if h.Credential != "" {
 		m.Credential = types.StringValue(h.Credential)
 	}

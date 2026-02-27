@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -521,12 +522,16 @@ func (c *Client) GetCurrentTeam(ctx context.Context) (*Team, error) {
 
 // ---------- Pagination helper ----------
 
+// maxPages is a hard cap on the number of pages fetched to prevent infinite loops
+// caused by a misbehaving server that always returns a next link.
+const maxPages = 10_000
+
 // fetchAll follows cursor pagination and accumulates all items.
 func fetchAll[T any](ctx context.Context, c *Client, initialURL string) ([]T, error) {
 	var all []T
 	nextURL := initialURL
 
-	for nextURL != "" {
+	for i := 0; nextURL != "" && i < maxPages; i++ {
 		body, _, err := c.do(ctx, http.MethodGet, nextURL, nil)
 		if err != nil {
 			return nil, err
@@ -546,12 +551,8 @@ func fetchAll[T any](ctx context.Context, c *Client, initialURL string) ([]T, er
 }
 
 // IsNotFound returns true when the error represents an HTTP 404.
+// It uses errors.As so it works correctly with wrapped errors.
 func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	if apiErr, ok := err.(*APIError); ok {
-		return apiErr.StatusCode == 404
-	}
-	return false
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == 404
 }

@@ -3,6 +3,7 @@ package client_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -517,10 +518,12 @@ func TestGetHostUser_NotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		if err := json.NewEncoder(w).Encode(map[string]any{
 			"data":  []any{},
 			"links": map[string]any{"next": nil},
-		})
+		}); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer srv.Close()
 
@@ -528,5 +531,292 @@ func TestGetHostUser_NotFound(t *testing.T) {
 	_, err := c.GetHostUser(context.Background(), "host-uuid-1", "missing-user-id")
 	if !client.IsNotFound(err) {
 		t.Errorf("expected IsNotFound=true, got err: %v", err)
+	}
+}
+
+func TestGetHostUser_Success(t *testing.T) {
+	akp := "/home/ubuntu/.ssh/authorized_keys"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"data": []any{
+				map[string]any{
+					"id":                   "hu-uuid-1",
+					"os_user":              "ubuntu",
+					"authorized_keys_path": akp,
+					"created_at":           "2024-01-01T00:00:00Z",
+				},
+			},
+			"links": map[string]any{"next": nil},
+		}); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	hu, err := c.GetHostUser(context.Background(), "host-uuid-1", "hu-uuid-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hu.OsUser != "ubuntu" {
+		t.Errorf("expected os_user ubuntu, got %s", hu.OsUser)
+	}
+	if hu.AuthorizedKeysPath == nil || *hu.AuthorizedKeysPath != akp {
+		t.Errorf("unexpected authorized_keys_path: %v", hu.AuthorizedKeysPath)
+	}
+}
+
+func TestUpdateHostUser_Success(t *testing.T) {
+	newPath := "/home/ubuntu/.ssh/authorized_keys"
+	srv := newTestServer(t, http.MethodPatch, "/api/v1/hosts/host-uuid-1/users/hu-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":                   "hu-uuid-1",
+			"os_user":              "ubuntu",
+			"authorized_keys_path": newPath,
+			"created_at":           "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	hu, err := c.UpdateHostUser(context.Background(), "host-uuid-1", "hu-uuid-1", client.UpdateHostUserRequest{
+		OsUser:             "ubuntu",
+		AuthorizedKeysPath: &newPath,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if hu.AuthorizedKeysPath == nil || *hu.AuthorizedKeysPath != newPath {
+		t.Errorf("unexpected authorized_keys_path: %v", hu.AuthorizedKeysPath)
+	}
+}
+
+func TestDeleteHostUser_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	if err := c.DeleteHostUser(context.Background(), "host-uuid-1", "hu-uuid-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// ---------- SSH Key additional tests ----------
+
+func TestUpdateSshKey_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodPatch, "/api/v1/ssh-keys/key-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":                 "key-uuid-1",
+			"name":               "deploy-renamed",
+			"fingerprint_sha256": "SHA256:abc",
+			"key_type":           "ed25519",
+			"blocked_indefinite": false,
+			"created_at":         "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	key, err := c.UpdateSshKey(context.Background(), "key-uuid-1", client.UpdateSshKeyRequest{Name: "deploy-renamed"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if key.Name != "deploy-renamed" {
+		t.Errorf("expected name deploy-renamed, got %s", key.Name)
+	}
+}
+
+func TestDeleteSshKey_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	if err := c.DeleteSshKey(context.Background(), "key-uuid-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetSshKey_NotFound(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/ssh-keys/missing", 404, map[string]any{
+		"message": "Not found.",
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	_, err := c.GetSshKey(context.Background(), "missing")
+	if !client.IsNotFound(err) {
+		t.Errorf("expected IsNotFound=true, got err: %v", err)
+	}
+}
+
+func TestListSshKeys_Pagination(t *testing.T) {
+	call := 0
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		call++
+		var resp map[string]any
+		if call == 1 {
+			nextURL := srv.URL + "/api/v1/ssh-keys?cursor=page2"
+			resp = map[string]any{
+				"data": []map[string]any{
+					{"id": "k1", "name": "key-1", "fingerprint_sha256": "SHA256:a", "key_type": "ed25519", "blocked_indefinite": false, "created_at": "2024-01-01T00:00:00Z"},
+				},
+				"links": map[string]any{"next": nextURL},
+			}
+		} else {
+			resp = map[string]any{
+				"data": []map[string]any{
+					{"id": "k2", "name": "key-2", "fingerprint_sha256": "SHA256:b", "key_type": "rsa", "blocked_indefinite": false, "created_at": "2024-01-01T00:00:00Z"},
+				},
+				"links": map[string]any{"next": nil},
+			}
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	keys, err := c.ListSshKeys(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(keys) != 2 {
+		t.Errorf("expected 2 keys, got %d", len(keys))
+	}
+	if keys[0].ID != "k1" || keys[1].ID != "k2" {
+		t.Errorf("unexpected key IDs: %v %v", keys[0].ID, keys[1].ID)
+	}
+}
+
+// ---------- Assignment additional tests ----------
+
+func TestDeleteAssignment_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	if err := c.DeleteAssignment(context.Background(), "assignment-uuid-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestGetAssignment_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/assignments/assignment-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id": "assignment-uuid-1",
+			"ssh_key": map[string]any{
+				"id":   "key-uuid-1",
+				"name": "deploy-key",
+			},
+			"host_user": map[string]any{
+				"id":      "hu-uuid-1",
+				"os_user": "ubuntu",
+			},
+			"created_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	a, err := c.GetAssignment(context.Background(), "assignment-uuid-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a.ID != "assignment-uuid-1" {
+		t.Errorf("expected ID assignment-uuid-1, got %s", a.ID)
+	}
+	if a.SshKey == nil || a.SshKey.ID != "key-uuid-1" {
+		t.Errorf("unexpected ssh_key: %v", a.SshKey)
+	}
+}
+
+// ---------- Webhook Endpoint additional tests ----------
+
+func TestGetWebhookEndpoint_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/webhook-endpoints/wh-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":            "wh-uuid-1",
+			"url":           "https://example.com/hook",
+			"events":        []string{"host.synced"},
+			"is_active":     true,
+			"failure_count": 0,
+			"created_at":    "2024-01-01T00:00:00Z",
+			"updated_at":    "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	wh, err := c.GetWebhookEndpoint(context.Background(), "wh-uuid-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if wh.URL != "https://example.com/hook" {
+		t.Errorf("expected url https://example.com/hook, got %s", wh.URL)
+	}
+}
+
+func TestGetWebhookEndpoint_NotFound(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/webhook-endpoints/missing", 404, map[string]any{
+		"message": "Not found.",
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	_, err := c.GetWebhookEndpoint(context.Background(), "missing")
+	if !client.IsNotFound(err) {
+		t.Errorf("expected IsNotFound=true, got err: %v", err)
+	}
+}
+
+func TestDeleteWebhookEndpoint_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	if err := c.DeleteWebhookEndpoint(context.Background(), "wh-uuid-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// ---------- IsNotFound works with wrapped errors ----------
+
+func TestIsNotFound_WrappedError(t *testing.T) {
+	wrapped := fmt.Errorf("outer: %w", &client.APIError{StatusCode: 404, Message: "not found"})
+	if !client.IsNotFound(wrapped) {
+		t.Error("expected IsNotFound=true for wrapped 404 APIError")
+	}
+}
+
+func TestIsNotFound_NonAPIError(t *testing.T) {
+	err := fmt.Errorf("generic error")
+	if client.IsNotFound(err) {
+		t.Error("expected IsNotFound=false for non-APIError")
 	}
 }
