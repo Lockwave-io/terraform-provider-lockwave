@@ -228,6 +228,92 @@ terraform import lockwave_webhook_endpoint.ops_alerts <endpoint-uuid>
 
 ---
 
+### `lockwave_notification_channel`
+
+Manages a Lockwave notification channel for team alerts. Supported types are `slack` and `email`.
+
+#### Arguments
+
+| Argument | Type   | Required | Description |
+|----------|--------|----------|-------------|
+| `type`   | string | Yes      | Channel type. One of: `slack`, `email`. Changing this forces a new resource. |
+| `name`   | string | Yes      | Human-readable name for the notification channel. |
+| `config` | object | Yes      | Type-specific configuration block. See below. |
+
+**Config block for `slack`:**
+
+| Argument      | Type   | Required | Description |
+|---------------|--------|----------|-------------|
+| `webhook_url` | string | Yes      | Incoming webhook URL. Sensitive. |
+
+**Config block for `email`:**
+
+| Argument     | Type         | Required | Description |
+|--------------|--------------|----------|-------------|
+| `recipients` | list(string) | Yes      | List of recipient email addresses. |
+
+#### Attributes (computed)
+
+| Attribute    | Type   | Description |
+|--------------|--------|-------------|
+| `id`         | string | UUID of the notification channel. |
+| `is_active`  | bool   | Whether the channel is currently active. |
+| `created_at` | string | ISO 8601 creation timestamp. |
+| `updated_at` | string | ISO 8601 timestamp of the last update. |
+
+#### Import
+
+```shell
+terraform import lockwave_notification_channel.slack_alerts <channel-uuid>
+```
+
+---
+
+### `lockwave_audit_log_stream`
+
+Manages a Lockwave audit log stream that forwards audit events to an external destination (webhook or S3).
+
+#### Arguments
+
+| Argument | Type   | Required | Description |
+|----------|--------|----------|-------------|
+| `type`   | string | Yes      | Destination type. One of: `webhook`, `s3`. Changing this forces a new resource. |
+| `config` | object | Yes      | Type-specific configuration block. See below. |
+
+**Config block for `webhook`:**
+
+| Argument | Type   | Required | Description |
+|----------|--------|----------|-------------|
+| `url`    | string | Yes      | HTTPS URL to deliver audit log payloads to. |
+| `secret` | string | No      | Optional HMAC secret for signing payloads. Sensitive. |
+
+**Config block for `s3`:**
+
+| Argument            | Type   | Required | Description |
+|---------------------|--------|----------|-------------|
+| `bucket`            | string | Yes      | S3 bucket name. |
+| `region`            | string | Yes      | AWS region (e.g. `us-east-1`). |
+| `prefix`            | string | No       | Optional key prefix for objects. |
+| `access_key_id`     | string | Yes      | AWS access key ID. Sensitive. |
+| `secret_access_key` | string | Yes      | AWS secret access key. Sensitive. |
+
+#### Attributes (computed)
+
+| Attribute    | Type   | Description |
+|--------------|--------|-------------|
+| `id`         | string | UUID of the audit log stream. |
+| `is_active`  | bool   | Whether the stream is currently active. |
+| `created_at` | string | ISO 8601 creation timestamp. |
+| `updated_at` | string | ISO 8601 timestamp of the last update. |
+
+#### Import
+
+```shell
+terraform import lockwave_audit_log_stream.siem <stream-uuid>
+```
+
+---
+
 ## Data Sources
 
 ### `lockwave_team`
@@ -416,6 +502,26 @@ resource "lockwave_webhook_endpoint" "ops_alerts" {
     "assignment.created",
     "assignment.deleted",
   ]
+}
+
+# ---------- Notification Channel ----------
+
+resource "lockwave_notification_channel" "slack_alerts" {
+  type = "slack"
+  name = "Engineering alerts"
+  config {
+    webhook_url = var.slack_webhook_url
+  }
+}
+
+# ---------- Audit Log Stream ----------
+
+resource "lockwave_audit_log_stream" "siem" {
+  type = "webhook"
+  config {
+    url    = "https://siem.example.com/lockwave"
+    secret = var.audit_stream_secret
+  }
 }
 
 # ---------- Outputs ----------
