@@ -85,6 +85,7 @@ type HostUser struct {
 	ID                   string  `json:"id"`
 	OsUser               string  `json:"os_user"`
 	AuthorizedKeysPath   *string `json:"authorized_keys_path"`
+	ExclusiveKeys        *bool   `json:"exclusive_keys"`
 	AssignmentCount      *int    `json:"assignment_count,omitempty"`
 	CreatedAt            string  `json:"created_at"`
 }
@@ -285,12 +286,14 @@ func (c *Client) ListHosts(ctx context.Context) ([]Host, error) {
 type CreateHostUserRequest struct {
 	OsUser             string  `json:"os_user"`
 	AuthorizedKeysPath *string `json:"authorized_keys_path,omitempty"`
+	ExclusiveKeys      *bool   `json:"exclusive_keys,omitempty"`
 }
 
 // UpdateHostUserRequest is the payload for PATCH /api/v1/hosts/{host_id}/users/{id}.
 type UpdateHostUserRequest struct {
 	OsUser             string  `json:"os_user,omitempty"`
 	AuthorizedKeysPath *string `json:"authorized_keys_path,omitempty"`
+	ExclusiveKeys      *bool   `json:"exclusive_keys,omitempty"`
 }
 
 // CreateHostUser creates an OS user record on a host.

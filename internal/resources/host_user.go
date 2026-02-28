@@ -8,6 +8,7 @@ import (
 	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -28,6 +29,7 @@ type HostUserResourceModel struct {
 	HostID             types.String `tfsdk:"host_id"`
 	OsUser             types.String `tfsdk:"os_user"`
 	AuthorizedKeysPath types.String `tfsdk:"authorized_keys_path"`
+	ExclusiveKeys      types.Bool   `tfsdk:"exclusive_keys"`
 	CreatedAt          types.String `tfsdk:"created_at"`
 }
 
@@ -70,6 +72,12 @@ func (r *HostUserResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"exclusive_keys": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Default:     booldefault.StaticBool(false),
+				Description: "When true, only Lockwave-managed keys are written to authorized_keys — all unmanaged keys are removed.",
+			},
 			"created_at": schema.StringAttribute{
 				Computed:    true,
 				Description: "ISO 8601 timestamp of when the host user was created.",
@@ -106,6 +114,10 @@ func (r *HostUserResource) Create(ctx context.Context, req resource.CreateReques
 	if !plan.AuthorizedKeysPath.IsNull() && !plan.AuthorizedKeysPath.IsUnknown() {
 		v := plan.AuthorizedKeysPath.ValueString()
 		createReq.AuthorizedKeysPath = &v
+	}
+	if !plan.ExclusiveKeys.IsNull() && !plan.ExclusiveKeys.IsUnknown() {
+		v := plan.ExclusiveKeys.ValueBool()
+		createReq.ExclusiveKeys = &v
 	}
 
 	hu, err := r.client.CreateHostUser(ctx, plan.HostID.ValueString(), createReq)
@@ -158,6 +170,10 @@ func (r *HostUserResource) Update(ctx context.Context, req resource.UpdateReques
 	if !plan.AuthorizedKeysPath.IsNull() && !plan.AuthorizedKeysPath.IsUnknown() {
 		v := plan.AuthorizedKeysPath.ValueString()
 		updateReq.AuthorizedKeysPath = &v
+	}
+	if !plan.ExclusiveKeys.IsNull() && !plan.ExclusiveKeys.IsUnknown() {
+		v := plan.ExclusiveKeys.ValueBool()
+		updateReq.ExclusiveKeys = &v
 	}
 
 	hu, err := r.client.UpdateHostUser(ctx, state.HostID.ValueString(), state.ID.ValueString(), updateReq)
@@ -219,5 +235,11 @@ func flattenHostUserToState(hu *client.HostUser, m *HostUserResourceModel) {
 		m.AuthorizedKeysPath = types.StringValue(*hu.AuthorizedKeysPath)
 	} else {
 		m.AuthorizedKeysPath = types.StringNull()
+	}
+
+	if hu.ExclusiveKeys != nil {
+		m.ExclusiveKeys = types.BoolValue(*hu.ExclusiveKeys)
+	} else {
+		m.ExclusiveKeys = types.BoolValue(false)
 	}
 }

@@ -45,6 +45,7 @@ var hostUserAttrTypes = map[string]attr.Type{
 	"id":                   types.StringType,
 	"os_user":              types.StringType,
 	"authorized_keys_path": types.StringType,
+	"exclusive_keys":       types.BoolType,
 	"created_at":           types.StringType,
 }
 
@@ -137,6 +138,10 @@ func (r *HostResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 						"authorized_keys_path": schema.StringAttribute{
 							Computed:    true,
 							Description: "Path to the authorized_keys file.",
+						},
+						"exclusive_keys": schema.BoolAttribute{
+							Computed:    true,
+							Description: "Whether only Lockwave-managed keys are written.",
 						},
 						"created_at": schema.StringAttribute{
 							Computed:    true,
@@ -346,10 +351,15 @@ func flattenHostToState(ctx context.Context, h *client.Host, m *HostResourceMode
 		if hu.AuthorizedKeysPath != nil {
 			akp = types.StringValue(*hu.AuthorizedKeysPath)
 		}
+		ek := types.BoolValue(false)
+		if hu.ExclusiveKeys != nil {
+			ek = types.BoolValue(*hu.ExclusiveKeys)
+		}
 		obj, d := types.ObjectValue(hostUserAttrTypes, map[string]attr.Value{
 			"id":                   types.StringValue(hu.ID),
 			"os_user":              types.StringValue(hu.OsUser),
 			"authorized_keys_path": akp,
+			"exclusive_keys":       ek,
 			"created_at":           types.StringValue(hu.CreatedAt),
 		})
 		diags.Append(d...)
