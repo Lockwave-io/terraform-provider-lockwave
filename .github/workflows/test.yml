@@ -68,9 +68,6 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    # golangci-lint v1.64 is built with Go 1.24 and cannot analyze Go 1.25 code.
-    # Remove continue-on-error once golangci-lint ships a Go 1.25 build.
-    continue-on-error: true
 
     steps:
       - name: Checkout repository
@@ -83,6 +80,6 @@ jobs:
           cache: false
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v7
         with:
           version: latest
