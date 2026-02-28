@@ -121,6 +121,8 @@ func (p *LockwaveProvider) Resources(_ context.Context) []func() resource.Resour
 		resources.NewSshKeyResource,
 		resources.NewAssignmentResource,
 		resources.NewWebhookEndpointResource,
+		resources.NewNotificationChannelResource,
+		resources.NewAuditLogStreamResource,
 	}
 }
 

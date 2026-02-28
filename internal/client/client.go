@@ -505,6 +505,177 @@ func (c *Client) DeleteWebhookEndpoint(ctx context.Context, id string) error {
 	return err
 }
 
+// ---------- Notification Channels ----------
+
+// NotificationChannelConfig holds the type-specific configuration for a notification channel.
+// For slack channels: {"webhook_url": "https://..."}.
+// For email channels: {"recipients": ["a@example.com", "b@example.com"]}.
+type NotificationChannelConfig map[string]any
+
+// NotificationChannel represents a Lockwave notification channel.
+type NotificationChannel struct {
+	ID        string                    `json:"id"`
+	Type      string                    `json:"type"`
+	Name      string                    `json:"name"`
+	Config    NotificationChannelConfig `json:"config"`
+	IsActive  bool                      `json:"is_active"`
+	CreatedAt string                    `json:"created_at"`
+	UpdatedAt string                    `json:"updated_at"`
+}
+
+// CreateNotificationChannelRequest is the payload for POST /api/v1/notification-channels.
+type CreateNotificationChannelRequest struct {
+	Type   string                    `json:"type"`
+	Name   string                    `json:"name"`
+	Config NotificationChannelConfig `json:"config"`
+}
+
+// UpdateNotificationChannelRequest is the payload for PATCH /api/v1/notification-channels/{id}.
+type UpdateNotificationChannelRequest struct {
+	Name   string                    `json:"name,omitempty"`
+	Config NotificationChannelConfig `json:"config,omitempty"`
+}
+
+// CreateNotificationChannel creates a new notification channel.
+func (c *Client) CreateNotificationChannel(ctx context.Context, req CreateNotificationChannelRequest) (*NotificationChannel, error) {
+	body, _, err := c.do(ctx, http.MethodPost, c.apiURL("notification-channels"), req)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[NotificationChannel]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode notification channel response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// GetNotificationChannel retrieves a notification channel by ID.
+func (c *Client) GetNotificationChannel(ctx context.Context, id string) (*NotificationChannel, error) {
+	body, _, err := c.do(ctx, http.MethodGet, c.apiURL("notification-channels/"+url.PathEscape(id)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[NotificationChannel]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode notification channel response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// UpdateNotificationChannel updates a notification channel by ID.
+func (c *Client) UpdateNotificationChannel(ctx context.Context, id string, req UpdateNotificationChannelRequest) (*NotificationChannel, error) {
+	body, _, err := c.do(ctx, http.MethodPatch, c.apiURL("notification-channels/"+url.PathEscape(id)), req)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[NotificationChannel]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode notification channel response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// DeleteNotificationChannel deletes a notification channel by ID.
+func (c *Client) DeleteNotificationChannel(ctx context.Context, id string) error {
+	_, _, err := c.do(ctx, http.MethodDelete, c.apiURL("notification-channels/"+url.PathEscape(id)), nil)
+	return err
+}
+
+// ListNotificationChannels returns all notification channels (follows cursor pagination).
+func (c *Client) ListNotificationChannels(ctx context.Context) ([]NotificationChannel, error) {
+	return fetchAll[NotificationChannel](ctx, c, c.apiURL("notification-channels"))
+}
+
+// ---------- Audit Log Streams ----------
+
+// AuditLogStreamConfig holds the type-specific configuration for an audit log stream.
+// For "webhook" type: URL and optionally Secret are used.
+// For "s3" type: Bucket, Region, Prefix (optional), AccessKeyID, and SecretAccessKey are used.
+type AuditLogStreamConfig struct {
+	// webhook fields
+	URL    string `json:"url,omitempty"`
+	Secret string `json:"secret,omitempty"`
+
+	// s3 fields
+	Bucket          string `json:"bucket,omitempty"`
+	Region          string `json:"region,omitempty"`
+	Prefix          string `json:"prefix,omitempty"`
+	AccessKeyID     string `json:"access_key_id,omitempty"`
+	SecretAccessKey string `json:"secret_access_key,omitempty"`
+}
+
+// AuditLogStream represents a Lockwave audit log stream.
+type AuditLogStream struct {
+	ID        string               `json:"id"`
+	Type      string               `json:"type"`
+	Config    AuditLogStreamConfig `json:"config"`
+	IsActive  bool                 `json:"is_active"`
+	CreatedAt string               `json:"created_at"`
+	UpdatedAt string               `json:"updated_at"`
+}
+
+// CreateAuditLogStreamRequest is the payload for POST /api/v1/audit-log-streams.
+type CreateAuditLogStreamRequest struct {
+	Type   string               `json:"type"`
+	Config AuditLogStreamConfig `json:"config"`
+}
+
+// UpdateAuditLogStreamRequest is the payload for PATCH /api/v1/audit-log-streams/{id}.
+type UpdateAuditLogStreamRequest struct {
+	Config AuditLogStreamConfig `json:"config"`
+}
+
+// CreateAuditLogStream creates a new audit log stream.
+func (c *Client) CreateAuditLogStream(ctx context.Context, req CreateAuditLogStreamRequest) (*AuditLogStream, error) {
+	body, _, err := c.do(ctx, http.MethodPost, c.apiURL("audit-log-streams"), req)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[AuditLogStream]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode audit log stream response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// GetAuditLogStream retrieves an audit log stream by ID.
+func (c *Client) GetAuditLogStream(ctx context.Context, id string) (*AuditLogStream, error) {
+	body, _, err := c.do(ctx, http.MethodGet, c.apiURL("audit-log-streams/"+url.PathEscape(id)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[AuditLogStream]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode audit log stream response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// UpdateAuditLogStream updates an audit log stream config by ID.
+// The stream type is immutable; only the config may be changed.
+func (c *Client) UpdateAuditLogStream(ctx context.Context, id string, req UpdateAuditLogStreamRequest) (*AuditLogStream, error) {
+	body, _, err := c.do(ctx, http.MethodPatch, c.apiURL("audit-log-streams/"+url.PathEscape(id)), req)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[AuditLogStream]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode audit log stream response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// DeleteAuditLogStream deletes an audit log stream by ID.
+func (c *Client) DeleteAuditLogStream(ctx context.Context, id string) error {
+	_, _, err := c.do(ctx, http.MethodDelete, c.apiURL("audit-log-streams/"+url.PathEscape(id)), nil)
+	return err
+}
+
+// ListAuditLogStreams returns all audit log streams (follows cursor pagination).
+func (c *Client) ListAuditLogStreams(ctx context.Context) ([]AuditLogStream, error) {
+	return fetchAll[AuditLogStream](ctx, c, c.apiURL("audit-log-streams"))
+}
+
 // ---------- Teams ----------
 
 // GetCurrentTeam retrieves the current team for the authenticated user.

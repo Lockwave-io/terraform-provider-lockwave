@@ -84,6 +84,26 @@ resource "lockwave_webhook_endpoint" "ops_alerts" {
   ]
 }
 
+# ---------- Notification Channel (Slack) ----------
+
+resource "lockwave_notification_channel" "slack_ops" {
+  type = "slack"
+  name = "ops-slack"
+  config = {
+    webhook_url = "https://hooks.slack.com/services/T00/B00/xxx"
+  }
+}
+
+# ---------- Audit Log Stream (Webhook) ----------
+
+resource "lockwave_audit_log_stream" "siem" {
+  type = "webhook"
+  config = {
+    url    = "https://siem.example.com/ingest/lockwave"
+    secret = "whsec_supersecret"
+  }
+}
+
 # ---------- Outputs ----------
 
 output "team_name" {

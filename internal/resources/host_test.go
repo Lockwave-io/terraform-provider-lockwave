@@ -260,6 +260,137 @@ func TestWebhookEndpointResource_ClientRoundTrip(t *testing.T) {
 	})
 }
 
+func TestNotificationChannelResource_ClientRoundTrip(t *testing.T) {
+	slackPayload := map[string]any{
+		"data": map[string]any{
+			"id":         "nc-uuid",
+			"type":       "slack",
+			"name":       "Ops Slack",
+			"config":     map[string]any{"webhook_url": "https://hooks.slack.com/services/T/B/secret"},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	}
+
+	t.Run("create_slack", func(t *testing.T) {
+		srv := mockServer(t, http.MethodPost, "/api/v1/notification-channels", 201, slackPayload)
+		defer srv.Close()
+		c := client.NewClient(srv.URL, "token", "team")
+		nc, err := c.CreateNotificationChannel(context.Background(), client.CreateNotificationChannelRequest{
+			Type:   "slack",
+			Name:   "Ops Slack",
+			Config: client.NotificationChannelConfig{"webhook_url": "https://hooks.slack.com/services/T/B/secret"},
+		})
+		if err != nil {
+			t.Fatalf("create: %v", err)
+		}
+		if nc.ID != "nc-uuid" {
+			t.Errorf("id mismatch: %s", nc.ID)
+		}
+		if nc.Type != "slack" {
+			t.Errorf("type mismatch: %s", nc.Type)
+		}
+		if nc.Config["webhook_url"] != "https://hooks.slack.com/services/T/B/secret" {
+			t.Errorf("webhook_url mismatch: %v", nc.Config["webhook_url"])
+		}
+	})
+
+	t.Run("read", func(t *testing.T) {
+		srv := mockServer(t, http.MethodGet, "/api/v1/notification-channels/nc-uuid", 200, slackPayload)
+		defer srv.Close()
+		c := client.NewClient(srv.URL, "token", "team")
+		nc, err := c.GetNotificationChannel(context.Background(), "nc-uuid")
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		if nc.Name != "Ops Slack" {
+			t.Errorf("name mismatch: %s", nc.Name)
+		}
+		if !nc.IsActive {
+			t.Error("expected is_active=true")
+		}
+	})
+
+	t.Run("update", func(t *testing.T) {
+		updated := map[string]any{
+			"data": map[string]any{
+				"id":         "nc-uuid",
+				"type":       "slack",
+				"name":       "Ops Slack Renamed",
+				"config":     map[string]any{"webhook_url": "https://hooks.slack.com/services/T/B/new"},
+				"is_active":  true,
+				"created_at": "2024-01-01T00:00:00Z",
+				"updated_at": "2024-01-02T00:00:00Z",
+			},
+		}
+		srv := mockServer(t, http.MethodPatch, "/api/v1/notification-channels/nc-uuid", 200, updated)
+		defer srv.Close()
+		c := client.NewClient(srv.URL, "token", "team")
+		nc, err := c.UpdateNotificationChannel(context.Background(), "nc-uuid", client.UpdateNotificationChannelRequest{
+			Name:   "Ops Slack Renamed",
+			Config: client.NotificationChannelConfig{"webhook_url": "https://hooks.slack.com/services/T/B/new"},
+		})
+		if err != nil {
+			t.Fatalf("update: %v", err)
+		}
+		if nc.Name != "Ops Slack Renamed" {
+			t.Errorf("name mismatch after update: %s", nc.Name)
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer srv.Close()
+		c := client.NewClient(srv.URL, "token", "team")
+		if err := c.DeleteNotificationChannel(context.Background(), "nc-uuid"); err != nil {
+			t.Fatalf("delete: %v", err)
+		}
+	})
+
+	t.Run("create_email", func(t *testing.T) {
+		emailPayload := map[string]any{
+			"data": map[string]any{
+				"id":         "nc-email-uuid",
+				"type":       "email",
+				"name":       "Email Alerts",
+				"config":     map[string]any{"recipients": []string{"ops@example.com"}},
+				"is_active":  true,
+				"created_at": "2024-01-01T00:00:00Z",
+				"updated_at": "2024-01-01T00:00:00Z",
+			},
+		}
+		srv := mockServer(t, http.MethodPost, "/api/v1/notification-channels", 201, emailPayload)
+		defer srv.Close()
+		c := client.NewClient(srv.URL, "token", "team")
+		nc, err := c.CreateNotificationChannel(context.Background(), client.CreateNotificationChannelRequest{
+			Type:   "email",
+			Name:   "Email Alerts",
+			Config: client.NotificationChannelConfig{"recipients": []string{"ops@example.com"}},
+		})
+		if err != nil {
+			t.Fatalf("create email: %v", err)
+		}
+		if nc.Type != "email" {
+			t.Errorf("type mismatch: %s", nc.Type)
+		}
+	})
+
+	t.Run("read_not_found", func(t *testing.T) {
+		srv := mockServer(t, http.MethodGet, "/api/v1/notification-channels/gone", 404, map[string]any{
+			"message": "Not found.",
+		})
+		defer srv.Close()
+		c := client.NewClient(srv.URL, "token", "team")
+		_, err := c.GetNotificationChannel(context.Background(), "gone")
+		if !client.IsNotFound(err) {
+			t.Errorf("expected IsNotFound=true, got err: %v", err)
+		}
+	})
+}
+
 func TestAssignmentResource_ClientRoundTrip(t *testing.T) {
 	assignPayload := map[string]any{
 		"data": map[string]any{

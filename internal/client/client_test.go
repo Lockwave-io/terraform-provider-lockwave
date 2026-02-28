@@ -805,6 +805,487 @@ func TestDeleteWebhookEndpoint_Success(t *testing.T) {
 	}
 }
 
+// ---------- Notification Channel tests ----------
+
+func TestCreateNotificationChannel_Slack(t *testing.T) {
+	srv := newTestServer(t, http.MethodPost, "/api/v1/notification-channels", 201, map[string]any{
+		"data": map[string]any{
+			"id":         "nc-uuid-1",
+			"type":       "slack",
+			"name":       "Slack Alerts",
+			"config":     map[string]any{"webhook_url": "https://hooks.slack.com/services/T0001/B0001/secret"},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	nc, err := c.CreateNotificationChannel(context.Background(), client.CreateNotificationChannelRequest{
+		Type: "slack",
+		Name: "Slack Alerts",
+		Config: client.NotificationChannelConfig{
+			"webhook_url": "https://hooks.slack.com/services/T0001/B0001/secret",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if nc.ID != "nc-uuid-1" {
+		t.Errorf("expected ID nc-uuid-1, got %s", nc.ID)
+	}
+	if nc.Type != "slack" {
+		t.Errorf("expected type slack, got %s", nc.Type)
+	}
+	if !nc.IsActive {
+		t.Error("expected is_active=true")
+	}
+	if nc.Config["webhook_url"] != "https://hooks.slack.com/services/T0001/B0001/secret" {
+		t.Errorf("unexpected webhook_url in config: %v", nc.Config["webhook_url"])
+	}
+}
+
+func TestCreateNotificationChannel_Email(t *testing.T) {
+	srv := newTestServer(t, http.MethodPost, "/api/v1/notification-channels", 201, map[string]any{
+		"data": map[string]any{
+			"id":         "nc-uuid-2",
+			"type":       "email",
+			"name":       "Email Alerts",
+			"config":     map[string]any{"recipients": []string{"ops@example.com", "sre@example.com"}},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	nc, err := c.CreateNotificationChannel(context.Background(), client.CreateNotificationChannelRequest{
+		Type: "email",
+		Name: "Email Alerts",
+		Config: client.NotificationChannelConfig{
+			"recipients": []string{"ops@example.com", "sre@example.com"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if nc.ID != "nc-uuid-2" {
+		t.Errorf("expected ID nc-uuid-2, got %s", nc.ID)
+	}
+	if nc.Type != "email" {
+		t.Errorf("expected type email, got %s", nc.Type)
+	}
+}
+
+func TestGetNotificationChannel_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/notification-channels/nc-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":         "nc-uuid-1",
+			"type":       "slack",
+			"name":       "Slack Alerts",
+			"config":     map[string]any{"webhook_url": "https://hooks.slack.com/services/T0001/B0001/secret"},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	nc, err := c.GetNotificationChannel(context.Background(), "nc-uuid-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if nc.Name != "Slack Alerts" {
+		t.Errorf("expected name Slack Alerts, got %s", nc.Name)
+	}
+}
+
+func TestGetNotificationChannel_NotFound(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/notification-channels/missing", 404, map[string]any{
+		"message": "Not found.",
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	_, err := c.GetNotificationChannel(context.Background(), "missing")
+	if !client.IsNotFound(err) {
+		t.Errorf("expected IsNotFound=true, got err: %v", err)
+	}
+}
+
+func TestUpdateNotificationChannel_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodPatch, "/api/v1/notification-channels/nc-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":         "nc-uuid-1",
+			"type":       "slack",
+			"name":       "Slack Alerts Renamed",
+			"config":     map[string]any{"webhook_url": "https://hooks.slack.com/services/T0001/B0001/newsecret"},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-02T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	nc, err := c.UpdateNotificationChannel(context.Background(), "nc-uuid-1", client.UpdateNotificationChannelRequest{
+		Name: "Slack Alerts Renamed",
+		Config: client.NotificationChannelConfig{
+			"webhook_url": "https://hooks.slack.com/services/T0001/B0001/newsecret",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if nc.Name != "Slack Alerts Renamed" {
+		t.Errorf("expected name Slack Alerts Renamed, got %s", nc.Name)
+	}
+	if nc.UpdatedAt != "2024-01-02T00:00:00Z" {
+		t.Errorf("expected updated_at 2024-01-02T00:00:00Z, got %s", nc.UpdatedAt)
+	}
+}
+
+func TestDeleteNotificationChannel_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	if err := c.DeleteNotificationChannel(context.Background(), "nc-uuid-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDeleteNotificationChannel_NotFound(t *testing.T) {
+	srv := newTestServer(t, http.MethodDelete, "/api/v1/notification-channels/gone", 404, map[string]any{
+		"message": "Not found.",
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	err := c.DeleteNotificationChannel(context.Background(), "gone")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !client.IsNotFound(err) {
+		t.Errorf("expected IsNotFound=true")
+	}
+}
+
+func TestListNotificationChannels_Pagination(t *testing.T) {
+	call := 0
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		call++
+		var resp map[string]any
+		if call == 1 {
+			nextURL := srv.URL + "/api/v1/notification-channels?cursor=page2"
+			resp = map[string]any{
+				"data": []map[string]any{
+					{"id": "nc1", "type": "slack", "name": "channel-1", "config": map[string]any{"webhook_url": "https://hooks.slack.com/1"}, "is_active": true, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"},
+				},
+				"links": map[string]any{"next": nextURL},
+			}
+		} else {
+			resp = map[string]any{
+				"data": []map[string]any{
+					{"id": "nc2", "type": "email", "name": "channel-2", "config": map[string]any{"recipients": []string{"a@example.com"}}, "is_active": true, "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-01T00:00:00Z"},
+				},
+				"links": map[string]any{"next": nil},
+			}
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	channels, err := c.ListNotificationChannels(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(channels) != 2 {
+		t.Errorf("expected 2 channels, got %d", len(channels))
+	}
+	if channels[0].ID != "nc1" || channels[1].ID != "nc2" {
+		t.Errorf("unexpected channel IDs: %v %v", channels[0].ID, channels[1].ID)
+	}
+}
+
+// ---------- Audit Log Stream tests ----------
+
+func TestCreateAuditLogStream_Webhook(t *testing.T) {
+	srv := newTestServer(t, http.MethodPost, "/api/v1/audit-log-streams", 201, map[string]any{
+		"data": map[string]any{
+			"id":   "als-uuid-1",
+			"type": "webhook",
+			"config": map[string]any{
+				"url":    "https://example.com/audit",
+				"secret": "mysecret",
+			},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	stream, err := c.CreateAuditLogStream(context.Background(), client.CreateAuditLogStreamRequest{
+		Type: "webhook",
+		Config: client.AuditLogStreamConfig{
+			URL:    "https://example.com/audit",
+			Secret: "mysecret",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stream.ID != "als-uuid-1" {
+		t.Errorf("expected ID als-uuid-1, got %s", stream.ID)
+	}
+	if stream.Type != "webhook" {
+		t.Errorf("expected type webhook, got %s", stream.Type)
+	}
+	if stream.Config.URL != "https://example.com/audit" {
+		t.Errorf("expected config.url https://example.com/audit, got %s", stream.Config.URL)
+	}
+	if stream.Config.Secret != "mysecret" {
+		t.Errorf("expected config.secret mysecret, got %s", stream.Config.Secret)
+	}
+	if !stream.IsActive {
+		t.Error("expected is_active=true")
+	}
+}
+
+func TestCreateAuditLogStream_S3(t *testing.T) {
+	srv := newTestServer(t, http.MethodPost, "/api/v1/audit-log-streams", 201, map[string]any{
+		"data": map[string]any{
+			"id":   "als-uuid-2",
+			"type": "s3",
+			"config": map[string]any{
+				"bucket":            "my-audit-bucket",
+				"region":            "us-east-1",
+				"prefix":            "lockwave/",
+				"access_key_id":     "AKIAIOSFODNN7EXAMPLE",
+				"secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	stream, err := c.CreateAuditLogStream(context.Background(), client.CreateAuditLogStreamRequest{
+		Type: "s3",
+		Config: client.AuditLogStreamConfig{
+			Bucket:          "my-audit-bucket",
+			Region:          "us-east-1",
+			Prefix:          "lockwave/",
+			AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
+			SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stream.Type != "s3" {
+		t.Errorf("expected type s3, got %s", stream.Type)
+	}
+	if stream.Config.Bucket != "my-audit-bucket" {
+		t.Errorf("expected config.bucket my-audit-bucket, got %s", stream.Config.Bucket)
+	}
+	if stream.Config.Region != "us-east-1" {
+		t.Errorf("expected config.region us-east-1, got %s", stream.Config.Region)
+	}
+	if stream.Config.Prefix != "lockwave/" {
+		t.Errorf("expected config.prefix lockwave/, got %s", stream.Config.Prefix)
+	}
+	if stream.Config.AccessKeyID != "AKIAIOSFODNN7EXAMPLE" {
+		t.Errorf("expected config.access_key_id AKIAIOSFODNN7EXAMPLE, got %s", stream.Config.AccessKeyID)
+	}
+	if stream.Config.SecretAccessKey != "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" {
+		t.Errorf("expected config.secret_access_key to match, got %s", stream.Config.SecretAccessKey)
+	}
+}
+
+func TestGetAuditLogStream_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/audit-log-streams/als-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":   "als-uuid-1",
+			"type": "webhook",
+			"config": map[string]any{
+				"url": "https://example.com/audit",
+			},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-01T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	stream, err := c.GetAuditLogStream(context.Background(), "als-uuid-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stream.ID != "als-uuid-1" {
+		t.Errorf("expected ID als-uuid-1, got %s", stream.ID)
+	}
+	if stream.Config.URL != "https://example.com/audit" {
+		t.Errorf("expected config.url https://example.com/audit, got %s", stream.Config.URL)
+	}
+}
+
+func TestGetAuditLogStream_NotFound(t *testing.T) {
+	srv := newTestServer(t, http.MethodGet, "/api/v1/audit-log-streams/missing", 404, map[string]any{
+		"message": "Not found.",
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	_, err := c.GetAuditLogStream(context.Background(), "missing")
+	if !client.IsNotFound(err) {
+		t.Errorf("expected IsNotFound=true, got err: %v", err)
+	}
+}
+
+func TestUpdateAuditLogStream_Success(t *testing.T) {
+	srv := newTestServer(t, http.MethodPatch, "/api/v1/audit-log-streams/als-uuid-1", 200, map[string]any{
+		"data": map[string]any{
+			"id":   "als-uuid-1",
+			"type": "webhook",
+			"config": map[string]any{
+				"url": "https://example.com/audit-v2",
+			},
+			"is_active":  true,
+			"created_at": "2024-01-01T00:00:00Z",
+			"updated_at": "2024-01-02T00:00:00Z",
+		},
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	stream, err := c.UpdateAuditLogStream(context.Background(), "als-uuid-1", client.UpdateAuditLogStreamRequest{
+		Config: client.AuditLogStreamConfig{
+			URL: "https://example.com/audit-v2",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stream.Config.URL != "https://example.com/audit-v2" {
+		t.Errorf("expected config.url https://example.com/audit-v2, got %s", stream.Config.URL)
+	}
+	if stream.UpdatedAt != "2024-01-02T00:00:00Z" {
+		t.Errorf("expected updated_at 2024-01-02T00:00:00Z, got %s", stream.UpdatedAt)
+	}
+}
+
+func TestDeleteAuditLogStream_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/v1/audit-log-streams/als-uuid-1" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	if err := c.DeleteAuditLogStream(context.Background(), "als-uuid-1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestDeleteAuditLogStream_NotFound_IsNotFound(t *testing.T) {
+	srv := newTestServer(t, http.MethodDelete, "/api/v1/audit-log-streams/gone", 404, map[string]any{
+		"message": "Not found.",
+	})
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	err := c.DeleteAuditLogStream(context.Background(), "gone")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !client.IsNotFound(err) {
+		t.Errorf("expected IsNotFound=true, got err: %v", err)
+	}
+}
+
+func TestListAuditLogStreams_Pagination(t *testing.T) {
+	call := 0
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		call++
+		var resp map[string]any
+		if call == 1 {
+			nextURL := srv.URL + "/api/v1/audit-log-streams?cursor=page2"
+			resp = map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "als1", "type": "webhook",
+						"config":     map[string]any{"url": "https://example.com/a"},
+						"is_active":  true,
+						"created_at": "2024-01-01T00:00:00Z",
+						"updated_at": "2024-01-01T00:00:00Z",
+					},
+				},
+				"links": map[string]any{"next": nextURL},
+			}
+		} else {
+			resp = map[string]any{
+				"data": []map[string]any{
+					{
+						"id": "als2", "type": "s3",
+						"config":     map[string]any{"bucket": "b", "region": "us-east-1"},
+						"is_active":  false,
+						"created_at": "2024-01-01T00:00:00Z",
+						"updated_at": "2024-01-01T00:00:00Z",
+					},
+				},
+				"links": map[string]any{"next": nil},
+			}
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer srv.Close()
+
+	c := client.NewClient(srv.URL, "test-token", "team-id")
+	streams, err := c.ListAuditLogStreams(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(streams) != 2 {
+		t.Errorf("expected 2 streams, got %d", len(streams))
+	}
+	if streams[0].ID != "als1" || streams[1].ID != "als2" {
+		t.Errorf("unexpected stream IDs: %v %v", streams[0].ID, streams[1].ID)
+	}
+	if streams[1].Type != "s3" {
+		t.Errorf("expected second stream type s3, got %s", streams[1].Type)
+	}
+}
+
 // ---------- IsNotFound works with wrapped errors ----------
 
 func TestIsNotFound_WrappedError(t *testing.T) {
