@@ -1,6 +1,6 @@
 # Terraform Provider Lockwave
 
-[![Go Version](https://img.shields.io/badge/go-1.21%2B-blue)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/go-1.25%2B-blue)](https://go.dev)
 [![Terraform Registry](https://img.shields.io/badge/terraform-registry-purple)](https://registry.terraform.io/providers/lockwave-io/lockwave/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -13,7 +13,7 @@ Manage SSH key lifecycle, hosts, assignments, and integrations via the [Lockwave
 | Component | Minimum version |
 |-----------|----------------|
 | Terraform | 1.0            |
-| Go        | 1.21 (building from source only) |
+| Go        | 1.25 (building from source only) |
 
 ---
 
