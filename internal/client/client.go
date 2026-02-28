@@ -92,6 +92,7 @@ type HostUser struct {
 type SshKey struct {
 	ID                 string  `json:"id"`
 	Name               string  `json:"name"`
+	PublicKey          string  `json:"public_key,omitempty"`
 	FingerprintSHA256  string  `json:"fingerprint_sha256"`
 	KeyType            string  `json:"key_type"`
 	KeyBits            *int    `json:"key_bits"`

@@ -280,6 +280,12 @@ func flattenSshKeyToState(k *client.SshKey, m *SshKeyResourceModel) {
 	m.BlockedIndefinite = types.BoolValue(k.BlockedIndefinite)
 	m.CreatedAt = types.StringValue(k.CreatedAt)
 
+	if k.PublicKey != "" {
+		m.PublicKey = types.StringValue(k.PublicKey)
+	} else {
+		m.PublicKey = types.StringNull()
+	}
+
 	if k.KeyBits != nil {
 		m.KeyBits = types.Int64Value(int64(*k.KeyBits))
 	} else {
