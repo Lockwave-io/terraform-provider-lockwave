@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
+	"golang.org/x/crypto/ssh"
 )
 
 // Ensure SshKeyResource satisfies the resource.Resource interface.
@@ -181,6 +182,15 @@ func (r *SshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	}
 
 	flattenSshKeyToState(key, &plan)
+
+	// If the API returned a private key but no public key, derive the public key.
+	if key.PrivateKey != "" && (plan.PublicKey.IsNull() || plan.PublicKey.ValueString() == "") {
+		signer, err := ssh.ParsePrivateKey([]byte(key.PrivateKey))
+		if err == nil {
+			plan.PublicKey = types.StringValue(string(ssh.MarshalAuthorizedKey(signer.PublicKey())))
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -203,9 +213,13 @@ func (r *SshKeyResource) Read(ctx context.Context, req resource.ReadRequest, res
 
 	// Preserve computed-once fields that the API does not return on GET.
 	savedPrivateKey := state.PrivateKey
+	savedPublicKey := state.PublicKey
 	savedMode := state.Mode
 	flattenSshKeyToState(key, &state)
 	state.PrivateKey = savedPrivateKey
+	if state.PublicKey.IsNull() || state.PublicKey.ValueString() == "" {
+		state.PublicKey = savedPublicKey
+	}
 	state.Mode = savedMode
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -238,8 +252,12 @@ func (r *SshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 	}
 
 	savedPrivateKey := state.PrivateKey
+	savedPublicKey := state.PublicKey
 	flattenSshKeyToState(key, &plan)
 	plan.PrivateKey = savedPrivateKey
+	if plan.PublicKey.IsNull() || plan.PublicKey.ValueString() == "" {
+		plan.PublicKey = savedPublicKey
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

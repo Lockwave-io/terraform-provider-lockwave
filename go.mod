@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.18.0
 	github.com/hashicorp/terraform-plugin-go v0.30.0
+	golang.org/x/crypto v0.48.0
 )
 
 require (
