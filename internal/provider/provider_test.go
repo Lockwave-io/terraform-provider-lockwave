@@ -3,7 +3,7 @@ package provider_test
 import (
 	"testing"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/provider"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )

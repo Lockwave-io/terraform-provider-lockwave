@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/client"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
 )
 
 // newTestServer creates an httptest.Server that responds to a single path with the

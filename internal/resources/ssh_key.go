@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/client"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"

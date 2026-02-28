@@ -1,4 +1,4 @@
-module github.com/fwartner/terraform-provider-lockwave
+module github.com/lockwave-io/terraform-provider-lockwave
 
 go 1.21
 

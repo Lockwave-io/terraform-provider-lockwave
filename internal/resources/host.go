@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/client"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	fwdiag "github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"

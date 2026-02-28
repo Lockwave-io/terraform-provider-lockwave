@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/client"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
 )
 
 // mockServer creates a simple httptest.Server for a single endpoint.

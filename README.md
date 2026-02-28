@@ -1,7 +1,7 @@
 # Terraform Provider Lockwave
 
 [![Go Version](https://img.shields.io/badge/go-1.21%2B-blue)](https://go.dev)
-[![Terraform Registry](https://img.shields.io/badge/terraform-registry-purple)](https://registry.terraform.io/providers/fwartner/lockwave/latest)
+[![Terraform Registry](https://img.shields.io/badge/terraform-registry-purple)](https://registry.terraform.io/providers/lockwave-io/lockwave/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Manage SSH key lifecycle, hosts, assignments, and integrations via the [Lockwave](https://lockwave.io) SaaS API. The provider lets you declaratively provision and enforce SSH access across your Linux/Unix fleet from within Terraform.
@@ -25,7 +25,7 @@ Add the provider to your `terraform` block:
 terraform {
   required_providers {
     lockwave = {
-      source  = "fwartner/lockwave"
+      source  = "lockwave-io/lockwave"
       version = "~> 0.1"
     }
   }
@@ -335,7 +335,7 @@ data "lockwave_ssh_keys" "all" {}
 terraform {
   required_providers {
     lockwave = {
-      source  = "fwartner/lockwave"
+      source  = "lockwave-io/lockwave"
       version = "~> 0.1"
     }
   }
@@ -445,7 +445,7 @@ output "deploy_key_fingerprint" {
 ### Building from source
 
 ```shell
-git clone https://github.com/fwartner/terraform-provider-lockwave.git
+git clone https://github.com/lockwave-io/terraform-provider-lockwave.git
 cd terraform-provider-lockwave
 go build -o terraform-provider-lockwave
 ```
@@ -471,7 +471,7 @@ Create a `~/.terraformrc` override so Terraform uses your local binary instead o
 ```hcl
 provider_installation {
   dev_overrides {
-    "fwartner/lockwave" = "/home/you/.terraform.d/plugins/registry.terraform.io/fwartner/lockwave/0.1.0/linux_amd64"
+    "lockwave-io/lockwave" = "/home/you/.terraform.d/plugins/registry.terraform.io/lockwave-io/lockwave/0.1.0/linux_amd64"
   }
   direct {}
 }

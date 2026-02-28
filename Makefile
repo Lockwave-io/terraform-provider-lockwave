@@ -1,5 +1,5 @@
 BINARY   := terraform-provider-lockwave
-INSTALL_DIR := $(HOME)/.terraform.d/plugins/registry.terraform.io/fwartner/lockwave/0.1.0/$$(go env GOOS)_$$(go env GOARCH)
+INSTALL_DIR := $(HOME)/.terraform.d/plugins/registry.terraform.io/lockwave-io/lockwave/0.1.0/$$(go env GOOS)_$$(go env GOARCH)
 
 .PHONY: build test testacc lint fmt install clean
 

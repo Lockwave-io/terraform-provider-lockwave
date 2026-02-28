@@ -6,7 +6,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/provider"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	opts := providerserver.ServeOpts{
-		Address: "registry.terraform.io/fwartner/lockwave",
+		Address: "registry.terraform.io/lockwave-io/lockwave",
 		Debug:   debug,
 	}
 

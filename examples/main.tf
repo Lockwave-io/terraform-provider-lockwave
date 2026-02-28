@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     lockwave = {
-      source  = "fwartner/lockwave"
+      source  = "lockwave-io/lockwave"
       version = "~> 0.1"
     }
   }

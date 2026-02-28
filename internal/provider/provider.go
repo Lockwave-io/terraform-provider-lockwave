@@ -5,9 +5,9 @@ import (
 	"context"
 	"os"
 
-	"github.com/fwartner/terraform-provider-lockwave/internal/client"
-	"github.com/fwartner/terraform-provider-lockwave/internal/datasources"
-	"github.com/fwartner/terraform-provider-lockwave/internal/resources"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/client"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/datasources"
+	"github.com/lockwave-io/terraform-provider-lockwave/internal/resources"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
