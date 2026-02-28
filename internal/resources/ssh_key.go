@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -36,6 +37,8 @@ type SshKeyResourceModel struct {
 	BlockedUntil      types.String `tfsdk:"blocked_until"`
 	BlockedIndefinite types.Bool   `tfsdk:"blocked_indefinite"`
 	PrivateKey        types.String `tfsdk:"private_key"`
+	Tags              types.List   `tfsdk:"tags"`
+	Source            types.String `tfsdk:"source"`
 	CreatedAt         types.String `tfsdk:"created_at"`
 }
 
@@ -134,6 +137,19 @@ func (r *SshKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"tags": schema.ListAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "List of string tags attached to the SSH key.",
+				ElementType: types.StringType,
+			},
+			"source": schema.StringAttribute{
+				Computed:    true,
+				Description: "Source of the SSH key (e.g. generated, imported).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -173,6 +189,14 @@ func (r *SshKeyResource) Create(ctx context.Context, req resource.CreateRequest,
 	if !plan.KeyBits.IsNull() && !plan.KeyBits.IsUnknown() {
 		v := int(plan.KeyBits.ValueInt64())
 		createReq.KeyBits = &v
+	}
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		var tags []string
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tags, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		createReq.Tags = tags
 	}
 
 	key, err := r.client.CreateSshKey(ctx, createReq)
@@ -244,6 +268,14 @@ func (r *SshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if !plan.Comment.IsNull() && !plan.Comment.IsUnknown() {
 		updateReq.Comment = plan.Comment.ValueString()
 	}
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		var tags []string
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tags, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		updateReq.Tags = tags
+	}
 
 	key, err := r.client.UpdateSshKey(ctx, state.ID.ValueString(), updateReq)
 	if err != nil {
@@ -297,6 +329,7 @@ func flattenSshKeyToState(k *client.SshKey, m *SshKeyResourceModel) {
 	m.KeyType = types.StringValue(k.KeyType)
 	m.BlockedIndefinite = types.BoolValue(k.BlockedIndefinite)
 	m.CreatedAt = types.StringValue(k.CreatedAt)
+	m.Source = types.StringValue(k.Source)
 
 	if k.PublicKey != "" {
 		m.PublicKey = types.StringValue(k.PublicKey)
@@ -324,5 +357,12 @@ func flattenSshKeyToState(k *client.SshKey, m *SshKeyResourceModel) {
 
 	if k.PrivateKey != "" {
 		m.PrivateKey = types.StringValue(k.PrivateKey)
+	}
+
+	tagsList, diags := types.ListValueFrom(context.Background(), types.StringType, k.Tags)
+	if diags.HasError() {
+		m.Tags = types.ListValueMust(types.StringType, []attr.Value{})
+	} else {
+		m.Tags = tagsList
 	}
 }

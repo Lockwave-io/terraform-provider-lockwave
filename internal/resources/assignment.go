@@ -23,11 +23,14 @@ type AssignmentResource struct {
 
 // AssignmentResourceModel is the Terraform state model for an assignment.
 type AssignmentResourceModel struct {
-	ID         types.String `tfsdk:"id"`
-	SshKeyID   types.String `tfsdk:"ssh_key_id"`
-	HostUserID types.String `tfsdk:"host_user_id"`
-	ExpiresAt  types.String `tfsdk:"expires_at"`
-	CreatedAt  types.String `tfsdk:"created_at"`
+	ID            types.String `tfsdk:"id"`
+	SshKeyID      types.String `tfsdk:"ssh_key_id"`
+	HostUserID    types.String `tfsdk:"host_user_id"`
+	ExpiresAt     types.String `tfsdk:"expires_at"`
+	Description   types.String `tfsdk:"description"`
+	CreatedByType types.String `tfsdk:"created_by_type"`
+	CreatedById   types.String `tfsdk:"created_by_id"`
+	CreatedAt     types.String `tfsdk:"created_at"`
 }
 
 // NewAssignmentResource is the factory function for AssignmentResource.
@@ -72,6 +75,28 @@ func (r *AssignmentResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"description": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Optional human-readable description for the assignment.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"created_by_type": schema.StringAttribute{
+				Computed:    true,
+				Description: "The type of the actor that created this assignment (e.g. user, team).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"created_by_id": schema.StringAttribute{
+				Computed:    true,
+				Description: "The UUID of the actor that created this assignment.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"created_at": schema.StringAttribute{
 				Computed:    true,
 				Description: "ISO 8601 timestamp of when the assignment was created.",
@@ -110,6 +135,10 @@ func (r *AssignmentResource) Create(ctx context.Context, req resource.CreateRequ
 		v := plan.ExpiresAt.ValueString()
 		createReq.ExpiresAt = &v
 	}
+	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+		v := plan.Description.ValueString()
+		createReq.Description = &v
+	}
 
 	assignment, err := r.client.CreateAssignment(ctx, createReq)
 	if err != nil {
@@ -142,8 +171,37 @@ func (r *AssignmentResource) Read(ctx context.Context, req resource.ReadRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-// Update is a no-op because all assignment fields are ForceNew.
-func (r *AssignmentResource) Update(_ context.Context, _ resource.UpdateRequest, _ *resource.UpdateResponse) {
+func (r *AssignmentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var plan AssignmentResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	var state AssignmentResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	updateReq := client.UpdateAssignmentRequest{}
+	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
+		v := plan.Description.ValueString()
+		updateReq.Description = &v
+	}
+	if !plan.ExpiresAt.IsNull() && !plan.ExpiresAt.IsUnknown() {
+		v := plan.ExpiresAt.ValueString()
+		updateReq.ExpiresAt = &v
+	}
+
+	assignment, err := r.client.UpdateAssignment(ctx, state.ID.ValueString(), updateReq)
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating assignment", err.Error())
+		return
+	}
+
+	flattenAssignmentToState(assignment, &plan)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *AssignmentResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -176,6 +234,8 @@ func (r *AssignmentResource) ImportState(ctx context.Context, req resource.Impor
 func flattenAssignmentToState(a *client.Assignment, m *AssignmentResourceModel) {
 	m.ID = types.StringValue(a.ID)
 	m.CreatedAt = types.StringValue(a.CreatedAt)
+	m.CreatedByType = types.StringValue(a.CreatedByType)
+	m.CreatedById = types.StringValue(a.CreatedById)
 
 	// Prefer the nested objects when available; fall back to flat ID fields.
 	if a.SshKey != nil {
@@ -194,5 +254,11 @@ func flattenAssignmentToState(a *client.Assignment, m *AssignmentResourceModel) 
 		m.ExpiresAt = types.StringValue(*a.ExpiresAt)
 	} else {
 		m.ExpiresAt = types.StringNull()
+	}
+
+	if a.Description != nil {
+		m.Description = types.StringValue(*a.Description)
+	} else {
+		m.Description = types.StringNull()
 	}
 }

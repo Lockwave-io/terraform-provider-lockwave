@@ -66,17 +66,18 @@ type errorResponse struct {
 
 // Host represents a Lockwave host.
 type Host struct {
-	ID            string      `json:"id"`
-	DisplayName   string      `json:"display_name"`
-	Hostname      string      `json:"hostname"`
-	OS            string      `json:"os"`
-	Arch          string      `json:"arch"`
-	Status        string      `json:"status"`
-	DaemonVersion string      `json:"daemon_version"`
-	LastSeenAt    *string     `json:"last_seen_at"`
-	HostUsers     []HostUser  `json:"host_users"`
-	Credential    string      `json:"credential,omitempty"`
-	CreatedAt     string      `json:"created_at"`
+	ID            string     `json:"id"`
+	DisplayName   string     `json:"display_name"`
+	Hostname      string     `json:"hostname"`
+	OS            string     `json:"os"`
+	Arch          string     `json:"arch"`
+	Status        string     `json:"status"`
+	DaemonVersion string     `json:"daemon_version"`
+	LastSeenAt    *string    `json:"last_seen_at"`
+	HostUsers     []HostUser `json:"host_users"`
+	Credential    string     `json:"credential,omitempty"`
+	Tags          []string   `json:"tags"`
+	CreatedAt     string     `json:"created_at"`
 }
 
 // HostUser represents an OS user on a Lockwave host.
@@ -90,28 +91,33 @@ type HostUser struct {
 
 // SshKey represents a Lockwave SSH key.
 type SshKey struct {
-	ID                 string  `json:"id"`
-	Name               string  `json:"name"`
-	PublicKey          string  `json:"public_key,omitempty"`
-	FingerprintSHA256  string  `json:"fingerprint_sha256"`
-	KeyType            string  `json:"key_type"`
-	KeyBits            *int    `json:"key_bits"`
-	Comment            *string `json:"comment"`
-	BlockedUntil       *string `json:"blocked_until"`
-	BlockedIndefinite  bool    `json:"blocked_indefinite"`
-	PrivateKey         string  `json:"private_key,omitempty"`
-	CreatedAt          string  `json:"created_at"`
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	PublicKey          string   `json:"public_key,omitempty"`
+	FingerprintSHA256  string   `json:"fingerprint_sha256"`
+	KeyType            string   `json:"key_type"`
+	KeyBits            *int     `json:"key_bits"`
+	Comment            *string  `json:"comment"`
+	BlockedUntil       *string  `json:"blocked_until"`
+	BlockedIndefinite  bool     `json:"blocked_indefinite"`
+	PrivateKey         string   `json:"private_key,omitempty"`
+	Tags               []string `json:"tags"`
+	Source             string   `json:"source"`
+	CreatedAt          string   `json:"created_at"`
 }
 
 // Assignment represents a Lockwave SSH key-to-host-user assignment.
 type Assignment struct {
-	ID        string   `json:"id"`
-	SshKey    *SshKey  `json:"ssh_key,omitempty"`
-	HostUser  *HostUser `json:"host_user,omitempty"`
-	SshKeyID  string   `json:"ssh_key_id,omitempty"`
-	HostUserID string  `json:"host_user_id,omitempty"`
-	ExpiresAt *string  `json:"expires_at"`
-	CreatedAt string   `json:"created_at"`
+	ID            string    `json:"id"`
+	SshKey        *SshKey   `json:"ssh_key,omitempty"`
+	HostUser      *HostUser `json:"host_user,omitempty"`
+	SshKeyID      string    `json:"ssh_key_id,omitempty"`
+	HostUserID    string    `json:"host_user_id,omitempty"`
+	ExpiresAt     *string   `json:"expires_at"`
+	Description   *string   `json:"description"`
+	CreatedByType string    `json:"created_by_type"`
+	CreatedById   string    `json:"created_by_id"`
+	CreatedAt     string    `json:"created_at"`
 }
 
 // WebhookEndpoint represents a Lockwave webhook endpoint.
@@ -207,18 +213,20 @@ func (c *Client) do(ctx context.Context, method, rawURL string, body any) ([]byt
 
 // CreateHostRequest is the payload for POST /api/v1/hosts.
 type CreateHostRequest struct {
-	DisplayName string `json:"display_name"`
-	Hostname    string `json:"hostname"`
-	OS          string `json:"os"`
-	Arch        string `json:"arch,omitempty"`
+	DisplayName string   `json:"display_name"`
+	Hostname    string   `json:"hostname"`
+	OS          string   `json:"os"`
+	Arch        string   `json:"arch,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 // UpdateHostRequest is the payload for PATCH /api/v1/hosts/{id}.
 type UpdateHostRequest struct {
-	DisplayName string `json:"display_name,omitempty"`
-	Hostname    string `json:"hostname,omitempty"`
-	OS          string `json:"os,omitempty"`
-	Arch        string `json:"arch,omitempty"`
+	DisplayName string   `json:"display_name,omitempty"`
+	Hostname    string   `json:"hostname,omitempty"`
+	OS          string   `json:"os,omitempty"`
+	Arch        string   `json:"arch,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
 }
 
 // CreateHost creates a new host and returns it along with a one-time credential.
@@ -341,17 +349,19 @@ func (c *Client) GetHostUser(ctx context.Context, hostID, userID string) (*HostU
 
 // CreateSshKeyRequest is the payload for POST /api/v1/ssh-keys.
 type CreateSshKeyRequest struct {
-	Name      string  `json:"name"`
-	Mode      string  `json:"mode"`
-	PublicKey *string `json:"public_key,omitempty"`
-	KeyType   *string `json:"key_type,omitempty"`
-	KeyBits   *int    `json:"key_bits,omitempty"`
+	Name      string   `json:"name"`
+	Mode      string   `json:"mode"`
+	PublicKey *string  `json:"public_key,omitempty"`
+	KeyType   *string  `json:"key_type,omitempty"`
+	KeyBits   *int     `json:"key_bits,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
 }
 
 // UpdateSshKeyRequest is the payload for PATCH /api/v1/ssh-keys/{id}.
 type UpdateSshKeyRequest struct {
-	Name    string `json:"name,omitempty"`
-	Comment string `json:"comment,omitempty"`
+	Name    string   `json:"name,omitempty"`
+	Comment string   `json:"comment,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
 }
 
 // CreateSshKey creates a new SSH key.
@@ -408,9 +418,16 @@ func (c *Client) ListSshKeys(ctx context.Context) ([]SshKey, error) {
 
 // CreateAssignmentRequest is the payload for POST /api/v1/assignments.
 type CreateAssignmentRequest struct {
-	SshKeyID   string  `json:"ssh_key_id"`
-	HostUserID string  `json:"host_user_id"`
-	ExpiresAt  *string `json:"expires_at,omitempty"`
+	SshKeyID    string  `json:"ssh_key_id"`
+	HostUserID  string  `json:"host_user_id"`
+	ExpiresAt   *string `json:"expires_at,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// UpdateAssignmentRequest is the payload for PATCH /api/v1/assignments/{id}.
+type UpdateAssignmentRequest struct {
+	Description *string `json:"description,omitempty"`
+	ExpiresAt   *string `json:"expires_at,omitempty"`
 }
 
 // CreateAssignment creates a key-to-host-user assignment.
@@ -429,6 +446,19 @@ func (c *Client) CreateAssignment(ctx context.Context, req CreateAssignmentReque
 // GetAssignment retrieves an assignment by ID.
 func (c *Client) GetAssignment(ctx context.Context, id string) (*Assignment, error) {
 	body, _, err := c.do(ctx, http.MethodGet, c.apiURL("assignments/"+url.PathEscape(id)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[Assignment]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode assignment response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// UpdateAssignment updates an assignment by ID.
+func (c *Client) UpdateAssignment(ctx context.Context, id string, req UpdateAssignmentRequest) (*Assignment, error) {
+	body, _, err := c.do(ctx, http.MethodPatch, c.apiURL("assignments/"+url.PathEscape(id)), req)
 	if err != nil {
 		return nil, err
 	}

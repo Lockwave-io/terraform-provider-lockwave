@@ -35,6 +35,7 @@ type HostResourceModel struct {
 	DaemonVersion types.String `tfsdk:"daemon_version"`
 	LastSeenAt    types.String `tfsdk:"last_seen_at"`
 	Credential    types.String `tfsdk:"credential"`
+	Tags          types.List   `tfsdk:"tags"`
 	CreatedAt     types.String `tfsdk:"created_at"`
 	HostUsers     types.List   `tfsdk:"host_users"`
 }
@@ -114,6 +115,12 @@ func (r *HostResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"tags": schema.ListAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "List of string tags attached to the host.",
+				ElementType: types.StringType,
+			},
 			"host_users": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "OS users registered on this host.",
@@ -168,6 +175,14 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 	if !plan.Arch.IsNull() && !plan.Arch.IsUnknown() {
 		createReq.Arch = plan.Arch.ValueString()
+	}
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		var tags []string
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tags, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		createReq.Tags = tags
 	}
 
 	host, err := r.client.CreateHost(ctx, createReq)
@@ -230,6 +245,14 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 	if !plan.Arch.IsNull() && !plan.Arch.IsUnknown() {
 		updateReq.Arch = plan.Arch.ValueString()
+	}
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		var tags []string
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tags, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		updateReq.Tags = tags
 	}
 
 	host, err := r.client.UpdateHost(ctx, state.ID.ValueString(), updateReq)
@@ -307,6 +330,14 @@ func flattenHostToState(ctx context.Context, h *client.Host, m *HostResourceMode
 	// untouched so callers can preserve the value they already have in state.
 	if h.Credential != "" {
 		m.Credential = types.StringValue(h.Credential)
+	}
+
+	tagsList, tagsDiags := types.ListValueFrom(ctx, types.StringType, h.Tags)
+	diags.Append(tagsDiags...)
+	if !tagsDiags.HasError() {
+		m.Tags = tagsList
+	} else {
+		m.Tags = types.ListValueMust(types.StringType, []attr.Value{})
 	}
 
 	huObjects := make([]attr.Value, 0, len(h.HostUsers))
