@@ -35,6 +35,7 @@ type HostResourceModel struct {
 	DaemonVersion types.String `tfsdk:"daemon_version"`
 	LastSeenAt    types.String `tfsdk:"last_seen_at"`
 	Credential    types.String `tfsdk:"credential"`
+	ProjectID     types.String `tfsdk:"project_id"`
 	Tags          types.List   `tfsdk:"tags"`
 	CreatedAt     types.String `tfsdk:"created_at"`
 	HostUsers     types.List   `tfsdk:"host_users"`
@@ -88,6 +89,10 @@ func (r *HostResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"project_id": schema.StringAttribute{
+				Optional:    true,
+				Description: "UUID of the project this host belongs to.",
 			},
 			"status": schema.StringAttribute{
 				Computed:    true,
@@ -181,6 +186,10 @@ func (r *HostResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if !plan.Arch.IsNull() && !plan.Arch.IsUnknown() {
 		createReq.Arch = plan.Arch.ValueString()
 	}
+	if !plan.ProjectID.IsNull() && !plan.ProjectID.IsUnknown() {
+		pid := plan.ProjectID.ValueString()
+		createReq.ProjectID = &pid
+	}
 	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
 		var tags []string
 		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tags, false)...)
@@ -250,6 +259,10 @@ func (r *HostResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	}
 	if !plan.Arch.IsNull() && !plan.Arch.IsUnknown() {
 		updateReq.Arch = plan.Arch.ValueString()
+	}
+	if !plan.ProjectID.IsNull() && !plan.ProjectID.IsUnknown() {
+		pid := plan.ProjectID.ValueString()
+		updateReq.ProjectID = &pid
 	}
 	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
 		var tags []string
@@ -328,6 +341,12 @@ func flattenHostToState(ctx context.Context, h *client.Host, m *HostResourceMode
 		m.LastSeenAt = types.StringValue(*h.LastSeenAt)
 	} else {
 		m.LastSeenAt = types.StringNull()
+	}
+
+	if h.ProjectID != nil {
+		m.ProjectID = types.StringValue(*h.ProjectID)
+	} else {
+		m.ProjectID = types.StringNull()
 	}
 
 	// Credential is only returned by CreateHost; subsequent GETs/PATCHes return "".

@@ -37,6 +37,7 @@ type SshKeyResourceModel struct {
 	BlockedUntil      types.String `tfsdk:"blocked_until"`
 	BlockedIndefinite types.Bool   `tfsdk:"blocked_indefinite"`
 	PrivateKey        types.String `tfsdk:"private_key"`
+	ProjectID         types.String `tfsdk:"project_id"`
 	Tags              types.List   `tfsdk:"tags"`
 	Source            types.String `tfsdk:"source"`
 	CreatedAt         types.String `tfsdk:"created_at"`
@@ -136,6 +137,10 @@ func (r *SshKeyResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+			},
+			"project_id": schema.StringAttribute{
+				Optional:    true,
+				Description: "UUID of the project this SSH key belongs to.",
 			},
 			"tags": schema.ListAttribute{
 				Optional:    true,
@@ -268,6 +273,10 @@ func (r *SshKeyResource) Update(ctx context.Context, req resource.UpdateRequest,
 	if !plan.Comment.IsNull() && !plan.Comment.IsUnknown() {
 		updateReq.Comment = plan.Comment.ValueString()
 	}
+	if !plan.ProjectID.IsNull() && !plan.ProjectID.IsUnknown() {
+		pid := plan.ProjectID.ValueString()
+		updateReq.ProjectID = &pid
+	}
 	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
 		var tags []string
 		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tags, false)...)
@@ -357,6 +366,12 @@ func flattenSshKeyToState(k *client.SshKey, m *SshKeyResourceModel) {
 
 	if k.PrivateKey != "" {
 		m.PrivateKey = types.StringValue(k.PrivateKey)
+	}
+
+	if k.ProjectID != nil {
+		m.ProjectID = types.StringValue(*k.ProjectID)
+	} else {
+		m.ProjectID = types.StringNull()
 	}
 
 	tagsList, diags := types.ListValueFrom(context.Background(), types.StringType, k.Tags)

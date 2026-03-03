@@ -64,6 +64,19 @@ type errorResponse struct {
 	Errors  map[string][]string `json:"errors"`
 }
 
+// Project represents a Lockwave project.
+type Project struct {
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Slug         string  `json:"slug"`
+	Description  *string `json:"description"`
+	Color        *string `json:"color"`
+	HostsCount   *int    `json:"hosts_count,omitempty"`
+	SshKeysCount *int    `json:"ssh_keys_count,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
+}
+
 // Host represents a Lockwave host.
 type Host struct {
 	ID            string     `json:"id"`
@@ -74,6 +87,7 @@ type Host struct {
 	Status        string     `json:"status"`
 	DaemonVersion string     `json:"daemon_version"`
 	LastSeenAt    *string    `json:"last_seen_at"`
+	ProjectID     *string    `json:"project_id"`
 	HostUsers     []HostUser `json:"host_users"`
 	Credential    string     `json:"credential,omitempty"`
 	Tags          []string   `json:"tags"`
@@ -102,6 +116,7 @@ type SshKey struct {
 	BlockedUntil       *string  `json:"blocked_until"`
 	BlockedIndefinite  bool     `json:"blocked_indefinite"`
 	PrivateKey         string   `json:"private_key,omitempty"`
+	ProjectID          *string  `json:"project_id"`
 	Tags               []string `json:"tags"`
 	Source             string   `json:"source"`
 	CreatedAt          string   `json:"created_at"`
@@ -218,6 +233,7 @@ type CreateHostRequest struct {
 	Hostname    string   `json:"hostname"`
 	OS          string   `json:"os"`
 	Arch        string   `json:"arch,omitempty"`
+	ProjectID   *string  `json:"project_id,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 }
 
@@ -227,6 +243,7 @@ type UpdateHostRequest struct {
 	Hostname    string   `json:"hostname,omitempty"`
 	OS          string   `json:"os,omitempty"`
 	Arch        string   `json:"arch,omitempty"`
+	ProjectID   *string  `json:"project_id,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
 }
 
@@ -362,9 +379,10 @@ type CreateSshKeyRequest struct {
 
 // UpdateSshKeyRequest is the payload for PATCH /api/v1/ssh-keys/{id}.
 type UpdateSshKeyRequest struct {
-	Name    string   `json:"name,omitempty"`
-	Comment string   `json:"comment,omitempty"`
-	Tags    []string `json:"tags,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Comment   string   `json:"comment,omitempty"`
+	ProjectID *string  `json:"project_id,omitempty"`
+	Tags      []string `json:"tags,omitempty"`
 }
 
 // CreateSshKey creates a new SSH key.
@@ -708,6 +726,72 @@ func (c *Client) DeleteAuditLogStream(ctx context.Context, id string) error {
 // ListAuditLogStreams returns all audit log streams (follows cursor pagination).
 func (c *Client) ListAuditLogStreams(ctx context.Context) ([]AuditLogStream, error) {
 	return fetchAll[AuditLogStream](ctx, c, c.apiURL("audit-log-streams"))
+}
+
+// ---------- Projects ----------
+
+// CreateProjectRequest is the payload for POST /api/v1/projects.
+type CreateProjectRequest struct {
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	Color       *string `json:"color,omitempty"`
+}
+
+// UpdateProjectRequest is the payload for PATCH /api/v1/projects/{id}.
+type UpdateProjectRequest struct {
+	Name        string  `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Color       *string `json:"color,omitempty"`
+}
+
+// CreateProject creates a new project.
+func (c *Client) CreateProject(ctx context.Context, req CreateProjectRequest) (*Project, error) {
+	body, _, err := c.do(ctx, http.MethodPost, c.apiURL("projects"), req)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[Project]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode project response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// GetProject retrieves a project by ID.
+func (c *Client) GetProject(ctx context.Context, id string) (*Project, error) {
+	body, _, err := c.do(ctx, http.MethodGet, c.apiURL("projects/"+url.PathEscape(id)), nil)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[Project]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode project response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// UpdateProject updates a project by ID.
+func (c *Client) UpdateProject(ctx context.Context, id string, req UpdateProjectRequest) (*Project, error) {
+	body, _, err := c.do(ctx, http.MethodPatch, c.apiURL("projects/"+url.PathEscape(id)), req)
+	if err != nil {
+		return nil, err
+	}
+	var wrapped dataWrapper[Project]
+	if err := json.Unmarshal(body, &wrapped); err != nil {
+		return nil, fmt.Errorf("decode project response: %w", err)
+	}
+	return &wrapped.Data, nil
+}
+
+// DeleteProject deletes a project by ID.
+func (c *Client) DeleteProject(ctx context.Context, id string) error {
+	_, _, err := c.do(ctx, http.MethodDelete, c.apiURL("projects/"+url.PathEscape(id)), nil)
+	return err
+}
+
+// ListProjects returns all projects (follows cursor pagination).
+func (c *Client) ListProjects(ctx context.Context) ([]Project, error) {
+	return fetchAll[Project](ctx, c, c.apiURL("projects"))
 }
 
 // ---------- Teams ----------

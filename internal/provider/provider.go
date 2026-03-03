@@ -119,6 +119,7 @@ func (p *LockwaveProvider) Resources(_ context.Context) []func() resource.Resour
 		resources.NewHostResource,
 		resources.NewHostUserResource,
 		resources.NewSshKeyResource,
+		resources.NewProjectResource,
 		resources.NewAssignmentResource,
 		resources.NewWebhookEndpointResource,
 		resources.NewNotificationChannelResource,
@@ -133,6 +134,8 @@ func (p *LockwaveProvider) DataSources(_ context.Context) []func() datasource.Da
 		datasources.NewHostsDataSource,
 		datasources.NewSshKeyDataSource,
 		datasources.NewSshKeysDataSource,
+		datasources.NewProjectDataSource,
+		datasources.NewProjectsDataSource,
 		datasources.NewTeamDataSource,
 	}
 }
